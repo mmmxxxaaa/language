@@ -1,1 +1,3 @@
-y=x  +5;
+Izum_Factor (x) {
+    y = 20;
+}

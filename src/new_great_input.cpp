@@ -46,7 +46,6 @@ Token* Lexer(const char* s, int* token_count)
             s++;
             continue;
         }
-
         if (*s == '(')
         {
             tokens[n++].type = TOKEN_LPAREN;
@@ -95,7 +94,18 @@ Token* Lexer(const char* s, int* token_count)
             s++;
             continue;
         }
-
+        if (*s == '{')
+        {
+            tokens[n++].type = TOKEN_LBRACE;
+            s++;
+            continue;
+        }
+        if (*s == '}')
+        {
+            tokens[n++].type = TOKEN_RBRACE;
+            s++;
+            continue;
+        }
         if (isdigit(*s))
         {
             double val = 0;
@@ -127,6 +137,17 @@ Token* Lexer(const char* s, int* token_count)
                 s++;
             }
             buffer[i] = '\0';
+
+            if (strcmp(buffer, "Izum_Factor") == 0)
+            {
+                tokens[n++].type = TOKEN_IF;
+                continue;
+            }
+            else if (strcmp(buffer, "Vova_AIbolit_Lechit_govnocod") == 0)
+            {
+                tokens[n++].type = TOKEN_WHILE;
+                continue;
+            }
 
             tokens[n].type = TOKEN_IDENTIFIER;
             tokens[n].value.identifier = strdup(buffer);
@@ -167,12 +188,118 @@ void FreeTokens(Token* tokens, int token_count)
     free(tokens);
 }
 
+static bool CheckToken(Token* tokens, int index, int token_count, TokenType type)
+{
+    return (index < token_count && tokens[index].type == type);
+}
+
+static bool ExpectToken(Token* tokens, int* index, int token_count, TokenType type, const char* error_msg)
+{
+    if (*index >= token_count || tokens[*index].type != type)
+    {
+        printf("Error: %s\n", error_msg);
+        return false;
+    }
+    (*index)++;
+    return true;
+}
+
 // ============================================================================
 // функции для парсера
 // ============================================================================
 
+static Node* GetExpression(Token* tokens, int* index, int token_count, VariableTable* var_table);
 static Node* GetTerm(Token* tokens, int* index, int token_count, VariableTable* var_table);
 static Node* GetFactor(Token* tokens, int* index, int token_count, VariableTable* var_table);
+static Node* ParseBlock(Token* tokens, int* index, int token_count, VariableTable* var_table);
+static Node* GetAssignment(Token* tokens, int* index, int token_count, VariableTable* var_table);
+
+static Node* GetIF(Token* tokens, int* index, int token_count, VariableTable* var_table)
+{
+    (*index)++; //пропустили if
+
+    if (!ExpectToken(tokens, index, token_count, TOKEN_LPAREN, "Expected '(' after 'if'"))
+        return NULL;
+
+    Node* condition = GetExpression(tokens, index, token_count, var_table);
+    if (!condition)
+        return NULL;
+
+    if (!ExpectToken(tokens, index, token_count, TOKEN_RPAREN, "Expected ')' after condition"))
+    {
+        FreeSubtree(condition);
+        return NULL;
+    }
+
+    Node* body = ParseBlock(tokens, index, token_count, var_table);
+    if (!body)
+    {
+        FreeSubtree(condition);
+        return NULL;
+    }
+
+    ValueOfTreeElement data = {};
+
+    return CreateNode(NODE_IF, data, condition, body);
+}
+
+static Node* GetST(Token* tokens, int* index, int token_count, VariableTable* var_table)
+{
+    if (CheckToken(tokens, *index, token_count, TOKEN_IF))
+    {
+        return GetIF(tokens, index, token_count, var_table);
+    }
+
+    if (CheckToken(tokens, *index, token_count, TOKEN_LBRACE))
+    {
+        return ParseBlock(tokens, index, token_count, var_table);
+    }
+
+    return GetAssignment(tokens, index, token_count, var_table);
+}
+
+static Node* ParseBlock(Token* tokens, int* index, int token_count, VariableTable* var_table)
+{
+    if (!ExpectToken(tokens, index, token_count, TOKEN_LBRACE, "Expected '{'"))
+        return NULL;
+
+    if (CheckToken(tokens, *index, token_count, TOKEN_RBRACE))
+    {
+        (*index)++;
+        ValueOfTreeElement data = {};
+        return CreateNode(NODE_EMPTY, data, NULL, NULL);
+    }
+
+    Node* first_stmt = GetST(tokens, index, token_count, var_table);
+    if (!first_stmt)
+        return NULL;
+
+    Node* current = first_stmt;
+
+    while (!CheckToken(tokens, *index, token_count, TOKEN_RBRACE))
+    {
+        Node* next_stmt = GetST(tokens, index, token_count, var_table);
+        if (!next_stmt)
+        {
+            FreeSubtree(current);
+            return NULL;
+        }
+
+        Node* seq_node = CreateNode(NODE_SEQUENCE, (ValueOfTreeElement){0}, current, next_stmt);
+        current = seq_node;
+    }
+
+    if (!ExpectToken(tokens, index, token_count, TOKEN_RBRACE, "Expected '}'"))
+    {
+        FreeSubtree(current);
+        return NULL;
+    }
+
+    return first_stmt ? current : CreateNode(NODE_EMPTY, (ValueOfTreeElement){0}, NULL, NULL);
+}
+
+
+//СИГМА СКИБИДИ
 
 // E ::= T {('+' | '-') T}*
 static Node* GetExpression(Token* tokens, int* index, int token_count, VariableTable* var_table)
@@ -237,7 +364,7 @@ static Node* GetTerm(Token* tokens, int* index, int token_count, VariableTable* 
     return left;
 }
 
-// Парсинг фактора: F ::= '(' E ')' | Identifier | Number
+// F ::= '(' E ')' | Identifier | Number
 static Node* GetFactor(Token* tokens, int* index, int token_count, VariableTable* var_table)
 {
     if (*index >= token_count)
@@ -294,58 +421,34 @@ static Node* GetFactor(Token* tokens, int* index, int token_count, VariableTable
 // A ::= Identifier '=' E ';'
 // ============================================================================
 
-Node* GetAssignment(const char* source, VariableTable* var_table)
+static Node* GetAssignment(Token* tokens, int* index, int token_count, VariableTable* var_table)
 {
-    int token_count = 0;
-    Token* tokens = Lexer(source, &token_count);
-    if (!tokens)
-        return NULL;
-
-    int index = 0;
-    if (index >= token_count || tokens[index].type != TOKEN_IDENTIFIER)
+    if (*index >= token_count || tokens[*index].type != TOKEN_IDENTIFIER)
     {
-        printf("Error: Expected identifier at the beginning\n");
-        FreeTokens(tokens, token_count);
         return NULL;
     }
 
-    char* var_name = strdup(tokens[index].value.identifier); //запомнили имя переменной
-    index++;
+    char* var_name = strdup(tokens[*index].value.identifier);
+    (*index)++;
 
     // чекаем на '='
-    if (index >= token_count || tokens[index].type != TOKEN_ASSIGN)
+    if (!ExpectToken(tokens, index, token_count, TOKEN_ASSIGN, "Expected '=' after identifier"))
     {
-        printf("Error: Expected '=' after identifier\n");
         free(var_name);
-        FreeTokens(tokens, token_count);
         return NULL;
     }
-    index++;
 
-    Node* expr = GetExpression(tokens, &index, token_count, var_table);
+    Node* expr = GetExpression(tokens, index, token_count, var_table);
     if (!expr)
     {
         free(var_name);
-        FreeTokens(tokens, token_count);
         return NULL;
     }
 
-    if (index >= token_count || tokens[index].type != TOKEN_SEMICOLON)
+    if (!ExpectToken(tokens, index, token_count, TOKEN_SEMICOLON, "Expected ';' after expression"))
     {
-        printf("Error: Expected ';' after expression\n");
         free(var_name);
         FreeSubtree(expr);
-        FreeTokens(tokens, token_count);
-        return NULL;
-    }
-    index++;
-
-    if (index < token_count && tokens[index].type != TOKEN_EOF)
-    {
-        printf("Error: Unexpected tokens after expression\n");
-        free(var_name);
-        FreeSubtree(expr);
-        FreeTokens(tokens, token_count);
         return NULL;
     }
 
@@ -353,16 +456,30 @@ Node* GetAssignment(const char* source, VariableTable* var_table)
     free(var_name);
 
     ValueOfTreeElement data = {};
-    Node* assign_node = CreateNode(NODE_ASSIGN, data, var_node, expr);
 
-    FreeTokens(tokens, token_count);
-
-    return assign_node;
+    return CreateNode(NODE_ASSIGN, data, var_node, expr);
 }
 
 Node* ParseProgram(const char* source, VariableTable* var_table)
 {
-    return GetAssignment(source, var_table);
+    int token_count = 0;
+    Token* tokens = Lexer(source, &token_count);
+    if (!tokens)
+        return NULL;
+
+    int index = 0;
+
+    Node* program = GetST(tokens, &index, token_count, var_table);
+
+    if (program && index < token_count && tokens[index].type != TOKEN_EOF)
+    {
+        printf("Error: Unexpected tokens at the end of program\n");
+        FreeSubtree(program);
+        program = NULL;
+    }
+
+    FreeTokens(tokens, token_count);
+    return program;
 }
 
 

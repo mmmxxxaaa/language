@@ -18,12 +18,10 @@
 #define DIV(left, right) CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_DIV}, (left), (right))
 #define POW(left, right) CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_POW}, (left), (right))
 
-// Унарные операции (только нужные)
 #define LN(arg)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_LN},     NULL, (arg))
 #define EXP(arg)    CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_EXP},    NULL, (arg))
 #define SQRT(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_POW}, x, NUM(0.5))
 
-// Присваивание (новый тип узла)
 #define ASSIGN(var, expr) CreateNode(NODE_ASSIGN, (ValueOfTreeElement){0}, (var), (expr))
 
 // ==================== ДЛЯ ДИФФЕРЕНЦИРОВАНИЯ ====================

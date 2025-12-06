@@ -26,7 +26,11 @@ typedef enum {
     NODE_OP,
     NODE_VAR,
     NODE_NUM,
-    NODE_ASSIGN
+    NODE_IF,
+    NODE_WHILE,
+    NODE_SEQUENCE,
+    NODE_ASSIGN,
+    NODE_EMPTY
 } NodeType;
 
 typedef enum {

@@ -149,6 +149,9 @@ TreeErrorType EvaluateTree(Tree* tree, VariableTable* var_table, double* result)
     return EvaluateTreeRecursive(tree->root, var_table, result, 0);
 }
 
+// =================================================================================================
+// Запуск проги в разных случаях
+// =================================================================================================
 TreeErrorType ExecuteAssignment(Node* assignment, VariableTable* var_table, double* result)
 {
     if (!assignment || assignment->type != NODE_ASSIGN || !var_table || !result)
@@ -174,6 +177,78 @@ TreeErrorType ExecuteAssignment(Node* assignment, VariableTable* var_table, doub
 
     return error;
 }
+
+TreeErrorType ExecuteExpression(Node* expr, VariableTable* var_table, double* result)
+{
+    if (!expr || !var_table || !result)
+        return TREE_ERROR_NULL_PTR;
+
+    Tree expr_tree = {};
+    TreeCtor(&expr_tree);
+    expr_tree.root = expr;
+
+    TreeErrorType error = EvaluateTree(&expr_tree, var_table, result);
+
+    // Не удаляем узлы, так как они принадлежат исходному AST
+    expr_tree.root = NULL;
+    TreeDtor(&expr_tree);
+
+    return error;
+}
+
+TreeErrorType ExecuteIf(Node* node, VariableTable* var_table, double* result)
+{
+    if (!node || node->type != NODE_IF)
+        return TREE_ERROR_INVALID_NODE;
+
+    double condition_result = 0;
+    TreeErrorType error = ExecuteExpression(node->left, var_table, &condition_result);
+    if (error != TREE_ERROR_NO)
+        return error;
+
+    if (!is_zero(condition_result))
+    {
+        return ExecuteProgram(node->right, var_table, result);
+    }
+
+    *result = 0.0;
+    return TREE_ERROR_NO;
+}
+
+TreeErrorType ExecuteProgram(Node* program, VariableTable* var_table, double* result)
+{
+    if (!program)
+        return TREE_ERROR_NO;
+
+    switch (program->type)
+    {
+        case NODE_ASSIGN:
+            return ExecuteAssignment(program, var_table, result);
+
+        case NODE_IF:
+            return ExecuteIf(program, var_table, result);
+
+        case NODE_SEQUENCE:
+        {
+            double left_result = 0;
+            TreeErrorType error = ExecuteProgram(program->left, var_table, &left_result);
+            if (error != TREE_ERROR_NO)
+                return error;
+
+            return ExecuteProgram(program->right, var_table, result);
+        }
+
+        case NODE_EMPTY:
+            *result = 0.0;
+            return TREE_ERROR_NO;
+
+        default:
+            printf("Error: Unknown node type %d\n", program->type);
+            return TREE_ERROR_UNKNOWN_NODE_TYPE;
+    }
+}
+
+//==================================================================================================
 
 Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right)
 {
