@@ -50,7 +50,6 @@ TreeErrorType TreeDtor(Tree* tree)
     return TREE_ERROR_NO;
 }
 
-
 unsigned int ComputeHash(const char* str) //djb2
 {
     unsigned int hash = 5381;

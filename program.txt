@@ -1,3 +1,17 @@
-Izum_Factor (x) {
-    y = 20;
+Freestayla helloWorld() {
+    answer = 52;
+    Rakamakafo answer;
+}
+
+Freestayla test() {
+    a = 5;
+    b = 3;
+    c = a + b;
+    d = a * b;
+    
+    Izum_Factor (c > d) {
+        Rakamakafo c;
+    }
+    
+    Rakamakafo d;
 }

@@ -6,7 +6,7 @@
 #include "tree_error_types.h"
 
 #define DEBUG
-
+//FIXME
 #ifdef DEBUG
     #define DEBUG_PRINT(format, ...) \
         do { \
@@ -20,7 +20,6 @@
 TreeErrorType TreeCtor(Tree* tree);
 TreeErrorType TreeDtor(Tree* tree);
 void          FreeNode(Node* node);
-
 unsigned int ComputeHash(const char* str);
 
 #endif // TREE_BASE_H_

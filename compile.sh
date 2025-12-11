@@ -1,7 +1,7 @@
 #!/bin/bash
 
 files="src/main.cpp src/new_great_input.cpp src/tree_base.cpp src/operations.cpp src/variable_parse.cpp \
-       src/logic_functions.cpp src/user_interface.cpp"
+       src/logic_functions.cpp src/user_interface.cpp src/function_parse.cpp src/dump.cpp"
 
 flags="-D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-optimizations \
     -Wc++14-compat -Wmissing-declarations -Wcast-align -Wcast-qual -Wchar-subscripts \

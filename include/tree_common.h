@@ -30,7 +30,24 @@ typedef enum {
     NODE_WHILE,
     NODE_SEQUENCE,
     NODE_ASSIGN,
-    NODE_EMPTY
+    NODE_EMPTY,
+
+    NODE_EQUAL,
+    NODE_NOT_EQUAL,
+    NODE_LESS,
+    NODE_LESS_EQUAL,
+    NODE_GREATER,
+    NODE_GREATER_EQUAL,
+
+    NODE_AND,
+    NODE_OR,
+    NODE_NOT,
+
+    NODE_FUNC_DECL,
+    NODE_FUNC_CALL,
+    NODE_RETURN,
+    NODE_PARAM,
+    NODE_ARGS
 } NodeType;
 
 typedef enum {
@@ -38,23 +55,10 @@ typedef enum {
     OP_SUB,
     OP_MUL,
     OP_DIV,
-    OP_POW,
-    OP_SIN,
-    OP_COS,
-    OP_TAN,
-    OP_COT,
-    OP_ARCSIN,
-    OP_ARCCOS,
-    OP_ARCTAN,
-    OP_ARCCOT,
-    OP_SINH,
-    OP_COSH,
-    OP_TANH,
-    OP_COTH,
-    OP_LN,
-    OP_EXP,
     OP_COUNT
 } OperationType;
+
+typedef struct Node Node;
 
 typedef struct {
     unsigned int hash;
@@ -67,10 +71,17 @@ typedef struct {
     OperationType op_value;
 } OperationInfo;
 
+typedef struct {
+    char* name;
+    Node* args;
+} FuncCallData;
+
 typedef union {
     double             num_value;
     OperationType      op_value;
     VariableDefinition var_definition;
+    char*              func_name;
+    FuncCallData       func_call;
 } ValueOfTreeElement;
 
 typedef struct Node {
@@ -88,4 +99,36 @@ typedef struct {
     char* file_buffer;
 } Tree;
 
+//=============== ТАБЛИЦЫ =============================
+typedef struct {
+    char   name[kMaxVariableLength];
+    double value;
+    size_t hash;
+    bool   is_defined;
+} Variable;
+
+typedef struct {
+    Variable* variables;
+    int       number_of_variables;
+    bool      is_sorted;
+} VariableTable;
+
+typedef struct FunctionInfo {
+    char* name;
+    int param_count;
+    char** param_names;
+    Node* body;
+    struct FunctionInfo* next;
+} FunctionInfo;
+
+typedef struct FunctionTable {
+    FunctionInfo* functions;
+    int count;
+} FunctionTable;
+
+
+typedef struct ParserContext {
+    FunctionTable func_table;
+    VariableTable var_table;
+} ParserContext;
 #endif //TREE_COMMON_H_

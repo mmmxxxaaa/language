@@ -6,19 +6,6 @@
 #include "tree_error_types.h"
 #include "tree_common.h"
 
-typedef struct {
-    char   name[kMaxVariableLength];
-    double value;
-    size_t hash;
-    bool   is_defined;
-} Variable;
-
-typedef struct {
-    Variable* variables;
-    int       number_of_variables;
-    bool      is_sorted;
-} VariableTable;
-
 void InitVariableTable(VariableTable* ptr_table);
 int FindVariableByName(VariableTable* ptr_table, const char* name_of_variable); //если встретиили в первый раз, то добавялем вместо
 TreeErrorType AddVariable         (VariableTable* ptr_table, const char* name_of_variable);

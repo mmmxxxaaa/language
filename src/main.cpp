@@ -1,45 +1,56 @@
 #include <stdio.h>
+#include <string.h>
 #include "new_great_input.h"
+#include "dump.h"
+#include "function_parse.h"
 #include "operations.h"
-//выполняет любую прогу //FIXME как будто хуятина какая-то
 
 int main(int argc, const char** argv)
 {
-    VariableTable var_table = {};
-    InitVariableTable(&var_table);
+    ParserContext context = {};
+    InitVariableTable(&context.var_table);
+    InitFunctionTable(&context.func_table);
 
-    Node* program = ReadProgramFromFile("program.txt", &var_table);
+    const char* filename = "program.txt"; //FIXME
+
+    Node* program = ReadProgramFromFile(filename, &context);
     if (!program)
     {
-        printf("Ошибка: не удалось загрузить программу\n");
-        DestroyVariableTable(&var_table);
-
+        fprintf(stderr, "Ошибка: не удалось загрузить программу из файла '%s'\n", filename);
+        DestroyVariableTable(&context.var_table);
         return 1;
     }
 
-    printf("Программа загружена успешно.\n\n");
+    Tree tree = {};
+    tree.root = program;
+    tree.size = CountTreeNodes(program);
 
-    double result = 0.0;
-    TreeErrorType error = ExecuteProgram(program, &var_table, &result);
-
-    if (error == TREE_ERROR_NO)
+    TreeErrorType error = InitTreeLog("program_dump"); //FIXME
+    if (error != TREE_ERROR_NO)
     {
-        printf("Программа выполнена успешно\n");
-        printf("Результат: %.2f\n", result);
-
-        printf("\n Переменные после выполнения:\n");
-        for (int i = 0; i < var_table.number_of_variables; i++)
-        {
-            printf("  %s = %.2f\n", var_table.variables[i].name, var_table.variables[i].value);
-        }
+        fprintf(stderr, "Ошибка инициализации лога: %d\n", error);
     }
     else
     {
-        printf("Ошибка выполнения: %d\n", error);
+        error = TreeDump(&tree, "program_dump"); //FIXME
+        if (error != TREE_ERROR_NO)
+            fprintf(stderr, "Ошибка создания дампа: %d\n", error);
+
+        error = CloseTreeLog("program_dump");
+        if (error != TREE_ERROR_NO)
+            fprintf(stderr, "Ошибка закрытия лога: %d\n", error);
     }
 
+    TreeVerifyResult verify_result = VerifyTree(&tree);
+    if (verify_result != TREE_VERIFY_SUCCESS)
+        printf("Проверка дерева: %s\n", TreeVerifyResultToString(verify_result));
+
+    printf("Найдено функций: %d\n", context.func_table.count);
+    printf("\n Переменные в таблице: %d\n", context.var_table.number_of_variables);
+
     FreeSubtree(program);
-    DestroyVariableTable(&var_table);
+    DestroyVariableTable(&context.var_table);
+    DestroyFunctionTable(&context.func_table);
 
     return 0;
 }
