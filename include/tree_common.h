@@ -118,7 +118,7 @@ typedef struct FunctionInfo {
     int param_count;
     char** param_names;
     Node* body;
-    struct FunctionInfo* next;
+    FunctionInfo* next;
 } FunctionInfo;
 
 typedef struct FunctionTable {
@@ -126,9 +126,10 @@ typedef struct FunctionTable {
     int count;
 } FunctionTable;
 
-
 typedef struct ParserContext {
     FunctionTable func_table;
     VariableTable var_table;
 } ParserContext;
+
+
 #endif //TREE_COMMON_H_

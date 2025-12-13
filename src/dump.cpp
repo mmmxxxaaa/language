@@ -53,14 +53,14 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
         case NODE_NOT_EQUAL:
             return "!=";
 
-        case NODE_LESS:
+        case NODE_LESS: //FIXME
             return "<";
 
         case NODE_LESS_EQUAL:
             return "<=";
 
         case NODE_GREATER:
-            return "&gt;";
+            return "&gt;"; //printf("\"");
 
         case NODE_GREATER_EQUAL:
             return "&gt;=";
@@ -171,9 +171,14 @@ static void CreateNodeRecursive(Node* node, Tree* tree, FILE* dot_file)
     const char* node_data = NodeDataToString(node, buffer, sizeof(buffer));
     const char* node_type_str = NodeTypeToString(node->type);
 
-    fprintf(dot_file, "    node_%p [label=\"{ {type: %s\\ndata: %s} | {address: %p} | {left %p| right %p| parent %p} }\", fillcolor=%s, shape=%s];\n",
-            (void*)node, node_type_str, node_data, (void*)node,
-            (void*)node->left, (void*)node->right, (void*)node->parent, color, shape);
+    //FIXME под ifdef
+    // fprintf(dot_file, "    node_%p [label=\"{ {type: %s\\ndata: %s} | {address: %p} | {left %p| right %p| parent %p} }\", fillcolor=%s, shape=%s];\n",
+    //         (void*)node, node_type_str, node_data, (void*)node,
+    //         (void*)node->left, (void*)node->right, (void*)node->parent, color, shape);
+
+    fprintf(dot_file, "    node_%p [label=\"{ {type: %s\\ndata: %s} }\", fillcolor=%s, shape=%s];\n",
+            (void*)node, node_type_str, node_data, color, shape);
+
 
     CreateNodeRecursive(node->left,  tree, dot_file);
     CreateNodeRecursive(node->right, tree, dot_file);
@@ -186,7 +191,8 @@ void CreateDotNodes(Tree* tree, FILE* dot_file)
 
     CreateNodeRecursive(tree->root, tree, dot_file);
 }
-
+// FIXME привязывать узлы по-другому (так, чтобы то, что встречалось в моем коде раньше, было выше по дереву, а у меня ща наоборот)
+// FIXME логические операции это NODE_OP
 void CreateTreeConnections(Node* node, FILE* dot_file)
 {
     if (node == NULL)

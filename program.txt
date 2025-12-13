@@ -1,17 +1,15 @@
-Freestayla helloWorld() {
-    answer = 52;
+Freestayla factorial(number) {
+    
+    answer = factorial(number - 1);
+
     Rakamakafo answer;
 }
 
 Freestayla test() {
-    a = 5;
+    a = 2;
     b = 3;
-    c = a + b;
-    d = a * b;
-    
-    Izum_Factor (c > d) {
-        Rakamakafo c;
-    }
-    
-    Rakamakafo d;
+    c = 5;
+    c = a/b/c;
+    result = factorial(c);
+    Rakamakafo result;
 }

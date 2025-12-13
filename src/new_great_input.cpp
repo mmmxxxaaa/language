@@ -125,7 +125,7 @@ Token* Lexer(const char* s, int* token_count)
 
         if (token_found)
             continue;
-
+        // FIXME мб объединить
         for (size_t i = 0; i < sizeof(standard_tokens) / sizeof(standard_tokens[0]); i++) //потом по односимвольным
         {
             size_t token_len = strlen(standard_tokens[i].token_string);
@@ -157,14 +157,14 @@ Token* Lexer(const char* s, int* token_count)
         }
         if (isalpha(*s) || *s == '_')
         {
-            char buffer[256] = {0}; //FIXME
+            char buffer[256] = {0}; // FIXME
             int i = 0;
 
             buffer[i++] = *s++;
 
             while (isalnum(*s) || *s == '_')
             {
-                if (i < 255) //FIXME
+                if (i < 255) // FIXME
                 {
                     buffer[i++] = *s;
                 }
@@ -267,14 +267,15 @@ static Node* GetFunc               (Token* tokens, int* index, int token_count, 
 static Node* GetReturn             (Token* tokens, int* index, int token_count, ParserContext* context);
 static Node* GetAssignmentStatement(Token* tokens, int* index, int token_count, ParserContext* context);
 
+//2 структуры неймтейблс и парсерсостояние и носить их в функции
 // General ::= { Func }*
-Node* GetProgram(const char* source, ParserContext* context)
+Node* GetProgram(const char* source, ParserContext* context)// разбить на функции
 {
     int token_count = 0;
     Token* tokens = Lexer(source, &token_count);
     if (!tokens)
         return NULL;
-
+// АШЧЬУ
     int index = 0;
     Node* program = NULL;
     Node* last_func = NULL;
@@ -282,7 +283,6 @@ Node* GetProgram(const char* source, ParserContext* context)
     while (index < token_count && tokens[index].type != TOKEN_EOF)
     {
         int current_index = index;
-
         Node* func = GetFunc(tokens, &index, token_count, context);
         if (!func)
         {
@@ -339,12 +339,27 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
     // Parameters ::= ε | Parameter { ',' Parameter }*
     Node* params = NULL;
     Node* last_param = NULL;
+    char** param_names = NULL;
+    int param_count = 0;
 
-    if (*index < token_count && tokens[*index].type != TOKEN_RPAREN)
+    if (*index < token_count && tokens[*index].type != TOKEN_RPAREN) //сначала собираем параметры
     {
+        int saved_index = *index; //счситаем количество параметров
+        param_count = 0;
 
-        // Parameter ::= Identifier
-        if (*index >= token_count || tokens[*index].type != TOKEN_IDENTIFIER)
+        while (saved_index < token_count && tokens[saved_index].type != TOKEN_RPAREN)
+        {
+            if (tokens[saved_index].type == TOKEN_IDENTIFIER)
+                param_count++;
+            saved_index++;
+            if (saved_index < token_count && tokens[saved_index].type == TOKEN_COMMA)
+                saved_index++;
+        }
+
+        param_names = (char**)calloc(param_count, sizeof(char*));
+        int param_idx = 0;
+
+        if (*index >= token_count || tokens[*index].type != TOKEN_IDENTIFIER) //разбираем первый параметр
         {
             fprintf(stderr, "Error: Expected parameter name\n");
             free(func_name);
@@ -353,6 +368,7 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
 
         char* param_name = strdup(tokens[*index].value.identifier);
         (*index)++;
+        param_names[param_idx++] = strdup(param_name);
 
         TreeErrorType error = AddVariable(&(context->var_table), param_name);
         if (error != TREE_ERROR_NO && error != TREE_ERROR_VARIABLE_ALREADY_EXISTS &&
@@ -361,6 +377,8 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
             fprintf(stderr, "Error adding parameter to table: %d\n", error);
             free(func_name);
             free(param_name);
+            free(param_names[0]);
+            free(param_names);
             return NULL;
         }
 
@@ -368,7 +386,7 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
         last_param = params;
         free(param_name);
 
-        while (*index < token_count && tokens[*index].type == TOKEN_COMMA)
+        while (*index < token_count && tokens[*index].type == TOKEN_COMMA) //разбираем остальные параметры
         {
             (*index)++; // пропускаем ','
 
@@ -377,11 +395,15 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
                 printf("Error: Expected parameter name after comma\n");
                 FreeSubtree(params);
                 free(func_name);
+                for (int j = 0; j < param_idx; j++)
+                    free(param_names[j]);
+                free(param_names);
                 return NULL;
             }
 
             char* param_name2 = strdup(tokens[*index].value.identifier);
             (*index)++;
+            param_names[param_idx++] = strdup(param_name2);
 
             error = AddVariable(&(context->var_table), param_name2);
             if (error != TREE_ERROR_NO && error != TREE_ERROR_VARIABLE_ALREADY_EXISTS &&
@@ -391,6 +413,9 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
                 FreeSubtree(params);
                 free(func_name);
                 free(param_name2);
+                for (int j = 0; j < param_idx; j++)
+                    free(param_names[j]);
+                free(param_names);
                 return NULL;
             }
 
@@ -410,10 +435,35 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
     {
         FreeSubtree(params);
         free(func_name);
+        if (param_names)
+        {
+            for (int i = 0; i < param_count; i++)
+                free(param_names[i]);
+            free(param_names);
+        }
         return NULL;
     }
 
-    Node* body = GetBlock(tokens, index, token_count, context);
+    // !!!Добавляем функцию в таблицу ДО разбора тела!!!
+    DEBUG_PRINT("Adding function %s to table (forward declaration)\n", func_name);
+    TreeErrorType error = AddFunction(&(context->func_table), func_name, param_count, param_names, NULL);
+
+    if (param_names) // Освобождаем param_names, так как AddFunction создала свои копии
+    {
+        for (int i = 0; i < param_count; i++)
+            free(param_names[i]);
+        free(param_names);
+    }
+
+    if (error != TREE_ERROR_NO && error != TREE_ERROR_FUNCTION_REDEFINITION) //FIXME для рекурсии разрешаем переопределение?
+    {
+        fprintf(stderr, "Error adding function to table: %d\n", error);
+        FreeSubtree(params);
+        free(func_name);
+        return NULL;
+    }
+
+    Node* body = GetBlock(tokens, index, token_count, context); //разбираем тело функции
     if (!body)
     {
         FreeSubtree(params);
@@ -421,57 +471,13 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
         return NULL;
     }
 
-    char **param_names = NULL;
-    int param_count = 0;
-
-    if (params)
+    for (int i = 0; i < context->func_table.count; i++) //просто сохраняем указатель
     {
-        Node* current = params;
-        while (current)
+        if (strcmp(context->func_table.functions[i].name, func_name) == 0)
         {
-            param_count++;
-            if (current->type == NODE_SEQUENCE)
-                current = current->right;
-            else
-                break;
+            context->func_table.functions[i].body = body;
+            break;
         }
-        param_names = (char**)calloc(param_count, sizeof(char*));
-        current = params;
-        int i = 0;
-        while (current && i < param_count)
-        {
-            if (current->type == NODE_SEQUENCE)
-            {
-                param_names[i] = strdup(current->left->data.var_definition.name);
-                current = current->right;
-            }
-            else
-            {
-                param_names[i] = strdup(current->data.var_definition.name);
-                current = NULL;
-            }
-            i++;
-        }
-    }
-
-    TreeErrorType error = AddFunction(&(context->func_table), func_name, param_count, param_names, body);
-
-    if (param_names)
-    {
-        for (int i = 0; i < param_count; i++)
-        {
-            free(param_names[i]);
-        }
-        free(param_names);
-    }
-
-    if (error != TREE_ERROR_NO && error != TREE_ERROR_FUNCTION_REDEFINITION)
-    {
-        fprintf(stderr, "Error adding function to table: %d\n", error);
-        FreeSubtree(params);
-        FreeSubtree(body);
-        free(func_name);
-        return NULL;
     }
 
     Node* func_node = FUNC_DECL(func_name, params, body);
@@ -507,17 +513,16 @@ static Node* GetReturn(Token* tokens, int* index, int token_count, ParserContext
 static Node* GetFuncCall(Token* tokens, int* index, int token_count, ParserContext* context)
 {
     DEBUG_PRINT("\n index: %d\n token_count: %d\n tokens[*index].type: %d\n", *index, token_count, tokens[*index].type);
-
     if (*index >= token_count || tokens[*index].type != TOKEN_IDENTIFIER)
     {
         printf("Error: Expected function name\n");
-        DEBUG_PRINT("at %d index", *index);
+        DEBUG_PRINT("at %d index penis", *index);
         return NULL;
     }
 
     char* func_name = strdup(tokens[*index].value.identifier);
     (*index)++;
-
+    DEBUG_PRINT("zalupa");
     if (*index >= token_count || tokens[*index].type != TOKEN_LPAREN)
     {
         free(func_name);
@@ -525,6 +530,7 @@ static Node* GetFuncCall(Token* tokens, int* index, int token_count, ParserConte
         return NULL;
     }
 
+    DEBUG_PRINT("Trying to find func");
     FunctionInfo* func_info = FindFunction(&(context->func_table), func_name);
     if (!func_info)
     {
@@ -706,7 +712,7 @@ static Node* GetBlock(Token* tokens, int* index, int token_count, ParserContext*
     return current; //FIXME
 }
 
-// IfStatement ::= 'Izum-Factor' '(' Expression ')' Block
+// IfStatement ::= 'Izum_Factor' '(' Expression ')' Block
 static Node* GetIfStatement(Token* tokens, int* index, int token_count, ParserContext* context)
 {
     if (!ExpectToken(tokens, index, token_count, TOKEN_IF, "Expected 'Izum-Factor'"))
@@ -734,7 +740,7 @@ static Node* GetIfStatement(Token* tokens, int* index, int token_count, ParserCo
     return IF(condition, body);
 }
 
-// WhileStatement ::= 'Vova-Arbolit-Lechit-govnocod' '(' Expression ')' Block
+// WhileStatement ::= 'Vova-Aibolit-Lechit-govnocod' '(' Expression ')' Block
 static Node* GetWhileStatement(Token* tokens, int* index, int token_count, ParserContext* context)
 {
     if (!ExpectToken(tokens, index, token_count, TOKEN_WHILE, "Expected 'Vova-Arbolit-Lechit-govnocod'"))
@@ -838,7 +844,7 @@ static Node* GetLogicAnd(Token* tokens, int* index, int token_count, ParserConte
     while (*index < token_count && tokens[*index].type == TOKEN_AND)
     {
         (*index)++; // пропускаем '&&'
-        Node* right = GetLogicEqual(tokens, index, token_count, context);
+        Node* right = GetLogicEqual(tokens, index, token_count, context); //FIXME а это не экспект токен ли?
         if (!right)
         {
             FreeSubtree(left);
@@ -909,57 +915,6 @@ static Node* GetLogicCompare(Token* tokens, int* index, int token_count, ParserC
         left = CreateNode(node_type, (ValueOfTreeElement){0}, (left), (right));
     }
     return left;
-    //     // if (type == TOKEN_LESS)
-    //     {
-    //         (*index)++;
-    //         Node* right = GetAddOrSub(tokens, index, token_count, context);
-    //         if (!right)
-    //         {
-    //             FreeSubtree(left);
-    //             return NULL;
-    //         }
-    //         left = LT(left, right);
-    //     }
-    //     else if (type == TOKEN_GREATER)
-    //     {
-    //         (*index)++;
-    //         Node* right = GetAddOrSub(tokens, index, token_count, context);
-    //         if (!right)
-    //         {
-    //             FreeSubtree(left);
-    //             return NULL;
-    //         }
-    //         left = GT(left, right);
-    //     }
-    //     else if (type == TOKEN_LESS_EQUAL)
-    //     {
-    //         (*index)++;
-    //         Node* right = GetAddOrSub(tokens, index, token_count, context);
-    //         if (!right)
-    //         {
-    //             FreeSubtree(left);
-    //             return NULL;
-    //         }
-    //         left = LE(left, right);
-    //     }
-    //     else if (type == TOKEN_GREATER_EQUAL)
-    //     {
-    //         (*index)++;
-    //         Node* right = GetAddOrSub(tokens, index, token_count, context);
-    //         if (!right)
-    //         {
-    //             FreeSubtree(left);
-    //             return NULL;
-    //         }
-    //         left = GE(left, right);
-    //     }
-    //     else
-    //     {
-    //         break;
-    //     }
-    // }
-    // return left;
-}
 
 // AddOrSub ::= Term {('+'|'-') Term}
 static Node* GetAddOrSub(Token* tokens, int* index, int token_count, ParserContext* context)

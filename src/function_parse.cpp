@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 #include "function_parse.h"
 #include "tree_error_types.h"
+#include "tree_base.h"
 
 FunctionTable* InitFunctionTable(FunctionTable* table)
 {
@@ -19,8 +21,10 @@ FunctionInfo* FindFunction(FunctionTable* func_table, const char* func_name)
     if (!func_table || !func_name) return NULL;
 
     FunctionInfo* current = func_table->functions;
+    DEBUG_PRINT("%p\n", (void*)current);
     while (current)
     {
+        DEBUG_PRINT("---\n%s---\n", current->name);
         if (strcmp(current->name, func_name) == 0)
             return current;
         current = current->next;
@@ -32,54 +36,86 @@ FunctionInfo* FindFunction(FunctionTable* func_table, const char* func_name)
 TreeErrorType AddFunction(FunctionTable* table, const char* name, int param_count, char** param_names, Node* body)
 {
     if (!table || !name)
-        return TREE_ERROR_INVALID_ARGUMENT;
+        return TREE_ERROR_NULL_PTR;
 
-    if (FindFunction(table, name))
-        return TREE_ERROR_FUNCTION_REDEFINITION;
-
-    FunctionInfo* func_info = (FunctionInfo*)calloc(1, sizeof(FunctionInfo));
-    if (!func_info)
-        return TREE_ERROR_MEMORY;
-
-    func_info->name = strdup(name);
-    if (!func_info->name)
+    FunctionInfo* current = table->functions;
+    while (current)
     {
-        free(func_info);
-        return TREE_ERROR_MEMORY;
+        if (strcmp(current->name, name) == 0)
+        {
+            if (current->body == NULL && body != NULL)
+            {
+                current->body = body; //сохр указатель на существующее дерево
+
+                if (current->param_count != param_count) // Количество параметров должно совпадать
+                {
+                    fprintf(stderr, "Error: Parameter count mismatch for function '%s'\n", name);
+                    return TREE_ERROR_FUNCTION_REDEFINITION;
+                }
+
+                return TREE_ERROR_NO;
+            }
+            else if (current->body != NULL)
+            {
+                return TREE_ERROR_FUNCTION_REDEFINITION; // Функция уже полностью определена. это ошибка переопределения
+            }
+            else
+            {
+                return TREE_ERROR_NO;
+            }
+        }
+        current = current->next;
     }
 
-    func_info->param_count = param_count;
-    func_info->body = body;
+    FunctionInfo* new_func = (FunctionInfo*)calloc(1, sizeof(FunctionInfo));
+    if (!new_func)
+        return TREE_ERROR_ALLOCATION;
 
-    if (param_count > 0 && param_names)
+    new_func->name = strdup(name);
+    if (!new_func->name)
     {
-        func_info->param_names = (char**)calloc(param_count, sizeof(char*));
-        if (!func_info->param_names)
+        free(new_func);
+        return TREE_ERROR_ALLOCATION;
+    }
+
+    new_func->param_count = param_count;
+    new_func->body = body;
+    new_func->next = NULL;
+
+    if (param_count > 0 && param_names) // копируем имена параметров
+    {
+        new_func->param_names = (char**)calloc(param_count, sizeof(char*));
+        if (!new_func->param_names)
         {
-            free(func_info->name);
-            free(func_info);
-            return TREE_ERROR_MEMORY;
+            free(new_func->name);
+            free(new_func);
+            return TREE_ERROR_ALLOCATION;
         }
 
         for (int i = 0; i < param_count; i++)
         {
-            func_info->param_names[i] = strdup(param_names[i]);
-            if (!func_info->param_names[i])
+            if (param_names[i])
             {
-                for (int j = 0; j < i; j++)
+                new_func->param_names[i] = strdup(param_names[i]);
+                if (!new_func->param_names[i])
                 {
-                    free(func_info->param_names[j]);
+                    for (int j = 0; j < i; j++)
+                        free(new_func->param_names[j]);
+                    free(new_func->param_names);
+                    free(new_func->name);
+                    free(new_func);
+                    return TREE_ERROR_ALLOCATION;
                 }
-                free(func_info->param_names);
-                free(func_info->name);
-                free(func_info);
-                return TREE_ERROR_MEMORY;
             }
         }
     }
+    else
+    {
+        new_func->param_names = NULL;
+    }
 
-    func_info->next = table->functions;
-    table->functions = func_info;
+    new_func->next = table->functions;
+    table->functions = new_func;
     table->count++;
 
     return TREE_ERROR_NO;
