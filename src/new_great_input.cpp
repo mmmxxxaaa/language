@@ -275,10 +275,13 @@ Node* GetProgram(const char* source, ParserContext* context)// разбить н
     Token* tokens = Lexer(source, &token_count);
     if (!tokens)
         return NULL;
-// АШЧЬУ
+
     int index = 0;
-    Node* program = NULL;
-    Node* last_func = NULL;
+
+// АШЧЬУ логику разделить
+
+    Node* functions[100] = {};  // FIXME динамический массив
+    int func_count = 0;
 
     while (index < token_count && tokens[index].type != TOKEN_EOF)
     {
@@ -286,26 +289,29 @@ Node* GetProgram(const char* source, ParserContext* context)// разбить н
         Node* func = GetFunc(tokens, &index, token_count, context);
         if (!func)
         {
-            FreeSubtree(program);
+             for (int i = 0; i < func_count; i++)
+                FreeSubtree(functions[i]);
             FreeTokens(tokens, token_count);
             return NULL;
         }
-
-        if (!program)
-        {
-            program = func;
-            last_func = func;
-        }
-        else
-        {
-            Node* seq = SEQ(last_func, func);
-            if (program == last_func)
-                program = seq;
-            last_func = seq;
-        }
+        functions[func_count++] = func;
     }
 
     FreeTokens(tokens, token_count);
+
+    if (func_count == 0)
+        return NULL;
+
+    // строим дерево сверху вниз, то есть первая функция должна быть наверху
+    // тот же подход, что и в GetBlock
+    Node* program = functions[func_count - 1];
+
+    for (int i = func_count - 2; i >= 0; i--) //когда идем обратно, строится та самая вложенная последовательность
+    {
+        program = SEQ(functions[i], program);
+    }
+
+    return program;
     return program;
 }
 
@@ -683,33 +689,46 @@ static Node* GetBlock(Token* tokens, int* index, int token_count, ParserContext*
         return EMPTY();
     }
 
+    Node* statements[1024];
+    int stmt_count = 0;
     Node* first_stmt = GetStatement(tokens, index, token_count, context);
     if (!first_stmt)
     {
         return NULL;
     }
-
-    Node* current = first_stmt;
+    statements[stmt_count++] = first_stmt;
 
     while (!CheckToken(tokens, *index, token_count, TOKEN_RBRACE))
     {
         Node* next_stmt = GetStatement(tokens, index, token_count, context);
         if (!next_stmt)
         {
-            FreeSubtree(current);
+            for (int i = 0; i < stmt_count; i++)
+                FreeSubtree(statements[i]);
             return NULL;
         }
-
-        current = SEQ(current, next_stmt);
+        statements[stmt_count++] = next_stmt;
     }
 
     if (!ExpectToken(tokens, index, token_count, TOKEN_RBRACE, "Expected '}'"))
     {
-        FreeSubtree(current);
+        for (int i = 0; i < stmt_count; i++)
+            FreeSubtree(statements[i]);
+
         return NULL;
     }
 
-    return current; //FIXME
+    // теперь строим дерево СВЕРХУ ВНИЗ (от первого к последнему)
+    if (stmt_count == 0)
+        return EMPTY();
+
+    Node* result = statements[stmt_count - 1];
+
+    // идем ОБРАТНО, строя вложенную последовательность
+    for (int i = stmt_count - 2; i >= 0; i--)
+        result = SEQ(statements[i], result);
+
+    return result; //FIXME
 }
 
 // IfStatement ::= 'Izum_Factor' '(' Expression ')' Block
@@ -915,7 +934,7 @@ static Node* GetLogicCompare(Token* tokens, int* index, int token_count, ParserC
         left = CreateNode(node_type, (ValueOfTreeElement){0}, (left), (right));
     }
     return left;
-
+}
 // AddOrSub ::= Term {('+'|'-') Term}
 static Node* GetAddOrSub(Token* tokens, int* index, int token_count, ParserContext* context)
 {

@@ -53,11 +53,11 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
         case NODE_NOT_EQUAL:
             return "!=";
 
-        case NODE_LESS: //FIXME
-            return "<";
-
+        case NODE_LESS:
+            return "&lt;";
+//FIXME в дампе использовать %g
         case NODE_LESS_EQUAL:
-            return "<=";
+            return "&lt;=";
 
         case NODE_GREATER:
             return "&gt;"; //printf("\"");

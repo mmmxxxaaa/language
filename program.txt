@@ -1,8 +1,25 @@
 Freestayla factorial(number) {
     
-    answer = factorial(number - 1);
+    Izum_Factor (number < 2) {
+           Rakamakafo 1;
+    }
 
-    Rakamakafo answer;
+    Rakamakafo factorial(number - 1) * number;
+}
+
+Freestayla penis1() {
+    Rakamakafo 77;
+}
+Freestayla penis2() {
+    Rakamakafo 77;
+}
+
+Freestayla penis3() {
+    Rakamakafo 77;
+}
+
+Freestayla penis4() {
+    Rakamakafo 77;
 }
 
 Freestayla test() {
@@ -10,6 +27,6 @@ Freestayla test() {
     b = 3;
     c = 5;
     c = a/b/c;
-    result = factorial(c);
+    result = factorial(c) + penis1();
     Rakamakafo result;
 }
