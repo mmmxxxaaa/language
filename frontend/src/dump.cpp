@@ -1,0 +1,496 @@
+#include "dump.h"
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include "tree_error_types.h"
+#include "tree_common.h"
+
+static const char* NodeDataToString(const Node* node, char* buffer, size_t buffer_size)
+{
+    if (node == NULL)
+        return "NULL";
+
+    switch (node->type)
+    {
+        case NODE_OP:
+            switch (node->data.op_value)
+            {
+                case OP_ADD: return "+";
+                case OP_SUB: return "-";
+                case OP_MUL: return "*";
+                case OP_DIV: return "/";
+                default:     return "?OP";
+            }
+
+        case NODE_NUM:
+            snprintf(buffer, buffer_size, "%.2f", node->data.num_value);
+            return buffer;
+
+        case NODE_VAR:
+            snprintf(buffer, buffer_size, "var: %s", node->data.var_definition.name);
+            return buffer;
+
+        case NODE_IF:
+            return "IF";
+
+        case NODE_WHILE:
+            return "WHILE";
+
+        case NODE_SEQUENCE:
+            return "SEQ";
+
+        case NODE_ASSIGN:
+            return "=";
+
+        case NODE_EMPTY:
+            return "EMPTY";
+
+        case NODE_EQUAL:
+            return "==";
+
+        case NODE_NOT_EQUAL:
+            return "!=";
+
+        case NODE_LESS:
+            return "&lt;";
+//FIXME в дампе использовать %g
+        case NODE_LESS_EQUAL:
+            return "&lt;=";
+
+        case NODE_GREATER:
+            return "&gt;"; //printf("\"");
+
+        case NODE_GREATER_EQUAL:
+            return "&gt;=";
+
+        case NODE_AND:
+            return "&&";
+
+        case NODE_OR:
+            return "||";
+
+        case NODE_NOT:
+            return "!";
+
+        case NODE_FUNC_DECL:
+            if (node->data.func_name)
+                snprintf(buffer, buffer_size, "FUNC: %s", node->data.func_name);
+            else
+                return "FUNC_DECL";
+            return buffer;
+
+        case NODE_FUNC_CALL:
+            if (node->data.func_call.name)
+                snprintf(buffer, buffer_size, "CALL: %s", node->data.func_call.name);
+            else
+                return "FUNC_CALL";
+            return buffer;
+
+        case NODE_RETURN:
+            return "RETURN";
+
+        case NODE_PARAM:
+            return "PARAM";
+
+        case NODE_ARGS:
+            return "ARGS";
+
+        default:
+            snprintf(buffer, buffer_size, "?TYPE:%d", node->type);
+            return buffer;
+    }
+}
+
+TreeErrorType GenerateDotFile(Tree* tree, const char* filename)
+{
+    assert(tree);
+    assert(filename);
+
+    FILE* dot_file = fopen(filename, "w");
+    if (!dot_file)
+        return TREE_ERROR_OPENING_FILE;
+
+    fprintf(dot_file, "digraph BinaryTree {\n");
+    fprintf(dot_file, "    rankdir=TB;\n");
+    fprintf(dot_file, "    node [shape=record, style=filled, color=black];\n\n");
+
+    CreateDotNodes(tree, dot_file);
+
+    if (tree->root != NULL)
+        CreateTreeConnections(tree->root, dot_file);
+    else
+        fprintf(dot_file, "    empty [label=\"Empty Tree\", shape=plaintext];\n");
+
+    fprintf(dot_file, "}\n");
+    fclose(dot_file);
+
+    return TREE_ERROR_NO;
+}
+
+static const char* NodeTypeToString(NodeType type)
+{
+    switch (type)
+    {
+        case NODE_OP:            return "NODE_OP";
+        case NODE_NUM:           return "NODE_NUM";
+        case NODE_VAR:           return "NODE_VAR";
+        case NODE_IF:            return "NODE_IF";
+        case NODE_WHILE:         return "NODE_WHILE";
+        case NODE_SEQUENCE:      return "NODE_SEQUENCE";
+        case NODE_ASSIGN:        return "NODE_ASSIGN";
+        case NODE_EMPTY:         return "NODE_EMPTY";
+        case NODE_EQUAL:         return "NODE_EQUAL";
+        case NODE_NOT_EQUAL:     return "NODE_NOT_EQUAL";
+        case NODE_LESS:          return "NODE_LESS";
+        case NODE_LESS_EQUAL:    return "NODE_LESS_EQUAL";
+        case NODE_GREATER:       return "NODE_GREATER";
+        case NODE_GREATER_EQUAL: return "NODE_GREATER_EQUAL";
+        case NODE_AND:           return "NODE_AND";
+        case NODE_OR:            return "NODE_OR";
+        case NODE_NOT:           return "NODE_NOT";
+        case NODE_FUNC_DECL:     return "NODE_FUNC_DECL";
+        case NODE_FUNC_CALL:     return "NODE_FUNC_CALL";
+        case NODE_RETURN:        return "NODE_RETURN";
+        case NODE_PARAM:         return "NODE_PARAM";
+        case NODE_ARGS:          return "NODE_ARGS";
+        default:                 return "NODE_UNKNOWN";
+    }
+}
+
+static void CreateNodeRecursive(Node* node, Tree* tree, FILE* dot_file)
+{
+    if (node == NULL)
+        return;
+
+    const char* color = GetNodeColor(node, tree);
+    const char* shape = "record";
+
+    char buffer[kMaxDotBufferLength] = {};
+    const char* node_data = NodeDataToString(node, buffer, sizeof(buffer));
+    const char* node_type_str = NodeTypeToString(node->type);
+
+    //FIXME под ifdef
+    // fprintf(dot_file, "    node_%p [label=\"{ {type: %s\\ndata: %s} | {address: %p} | {left %p| right %p| parent %p} }\", fillcolor=%s, shape=%s];\n",
+    //         (void*)node, node_type_str, node_data, (void*)node,
+    //         (void*)node->left, (void*)node->right, (void*)node->parent, color, shape);
+
+    fprintf(dot_file, "    node_%p [label=\"{ {type: %s\\ndata: %s} }\", fillcolor=%s, shape=%s];\n",
+            (void*)node, node_type_str, node_data, color, shape);
+
+
+    CreateNodeRecursive(node->left,  tree, dot_file);
+    CreateNodeRecursive(node->right, tree, dot_file);
+}
+
+void CreateDotNodes(Tree* tree, FILE* dot_file)
+{
+    assert(tree);
+    assert(dot_file);
+
+    CreateNodeRecursive(tree->root, tree, dot_file);
+}
+// FIXME привязывать узлы по-другому (так, чтобы то, что встречалось в моем коде раньше, было выше по дереву, а у меня ща наоборот)
+// FIXME логические операции это NODE_OP
+void CreateTreeConnections(Node* node, FILE* dot_file)
+{
+    if (node == NULL)
+        return;
+
+    if (node->left != NULL)
+    {
+        if (node->left->parent == node)
+        {
+            fprintf(dot_file, "    node_%p -> node_%p [color=blue, dir=both, arrowtail=normal, arrowhead=normal, label=\"L\"];\n",
+                    (void*)node, (void*)node->left);
+        }
+        else
+        {
+            fprintf(dot_file, "    node_%p -> node_%p [color=blue, label=\"L\"];\n",
+                    (void*)node, (void*)node->left);
+
+            fprintf(dot_file, "    error_parent_%p [shape=ellipse, style=filled, fillcolor=orange, label=\"Parent address Error\"];\n",
+                    (void*)node->left);
+            fprintf(dot_file, "    node_%p -> error_parent_%p [color=red];\n", (void*)node->left, (void*)node->left);
+        }
+        CreateTreeConnections(node->left, dot_file);
+    }
+
+    if (node->right != NULL)
+    {
+        if (node->right->parent == node)
+        {
+            fprintf(dot_file, "    node_%p -> node_%p [color=green, dir=both, arrowtail=normal, arrowhead=normal, label=\"R\"];\n",
+                    (void*)node, (void*)node->right);
+        }
+        else
+        {
+            fprintf(dot_file, "    node_%p -> node_%p [color=green, label=\"R\"];\n",
+                    (void*)node, (void*)node->right);
+
+            fprintf(dot_file, "    error_parent_%p [shape=ellipse, style=filled, fillcolor=orange, label=\"Parent address Error\"];\n",
+                    (void*)node->right);
+            fprintf(dot_file, "    node_%p -> error_parent_%p [color=red, style=dashed];\n", (void*)node->right, (void*)node->right);
+        }
+        CreateTreeConnections(node->right, dot_file);
+    }
+}
+
+const char* GetNodeColor(Node* node, Tree* tree)
+{
+    if (node == tree->root)
+        return "lightcoral";
+
+    switch (node->type)
+    {
+        case NODE_VAR:
+            return "lightgreen";
+
+        case NODE_NUM:
+            return "lightyellow";
+
+        case NODE_OP:
+            switch (node->data.op_value)
+            {
+                case OP_ADD: return "lightblue";
+                case OP_SUB: return "lightpink";
+                case OP_MUL: return "lightsalmon";
+                case OP_DIV: return "plum";
+                default:     return "lightgrey";
+            }
+
+        case NODE_IF:
+        case NODE_WHILE:
+            return "orange";
+
+        case NODE_SEQUENCE:
+            return "lightcyan";
+
+        case NODE_ASSIGN:
+            return "gold";
+
+        case NODE_EMPTY:
+            return "white";
+
+        case NODE_EQUAL:
+        case NODE_NOT_EQUAL:
+        case NODE_LESS:
+        case NODE_LESS_EQUAL:
+        case NODE_GREATER:
+        case NODE_GREATER_EQUAL:
+            return "lightcoral";
+
+        case NODE_AND:
+        case NODE_OR:
+        case NODE_NOT:
+            return "lightpink";
+
+        case NODE_FUNC_DECL:
+            return "violet";
+
+        case NODE_FUNC_CALL:
+            return "orchid";
+
+        case NODE_RETURN:
+            return "tomato";
+
+        case NODE_PARAM:
+        case NODE_ARGS:
+            return "wheat";
+
+        default:
+            return "lightgrey";
+    }
+}
+
+TreeErrorType WriteTreeCommonPicture(Tree* tree, FILE* htm_file, const char* folder_path, const char* folder_name)
+{
+    static int n_of_pictures = 0;
+
+    char temp_dot_global_path[kMaxLengthOfFilename] = {};
+    char temp_svg_global_path[kMaxLengthOfFilename] = {};
+
+    snprintf(temp_dot_global_path, sizeof(temp_dot_global_path), "%s/tree_%d.dot",
+             folder_path, n_of_pictures);
+    snprintf(temp_svg_global_path, sizeof(temp_svg_global_path), "%s/tree_%d.svg",
+             folder_path, n_of_pictures);
+
+    char temp_svg_local_path[kMaxLengthOfFilename] = {};
+    snprintf(temp_svg_local_path, sizeof(temp_svg_local_path), "%s/tree_%d.svg",
+             folder_name, n_of_pictures);
+
+    n_of_pictures++;
+
+    TreeErrorType dot_result = GenerateDotFile(tree, temp_dot_global_path);
+    if (dot_result != TREE_ERROR_NO)
+        return dot_result;
+
+    char command[kMaxSystemCommandLength] = {};
+    snprintf(command, sizeof(command), "dot -Tsvg -Gcharset=utf8 \"%s\" -o \"%s\"",
+             temp_dot_global_path, temp_svg_global_path);
+
+    int result = system(command);
+
+    if (result == 0)
+    {
+        fprintf(htm_file, "<div style='text-align:center;'>\n");
+        fprintf(htm_file, "<img src='%s' style='max-width:100%%; border:1px solid #ddd;'>\n", temp_svg_local_path);
+        fprintf(htm_file, "</div>\n");
+    }
+    else
+    {
+        fprintf(htm_file, "<p style='color:red;'>Error generating SVG graph</p>\n");
+    }
+
+    remove(temp_dot_global_path);
+
+    return TREE_ERROR_NO;
+}
+
+void WriteDumpHeader(FILE* htm_file, time_t now, const char* comment)
+{
+    assert(htm_file);
+
+    fprintf(htm_file, "<div style='border:2px solid #ccc; margin:10px; padding:15px; background:#f9f9f9;'>\n");
+    fprintf(htm_file, "<h2 style='color:#333;'>Tree Dump at %s</h2>\n", ctime(&now));
+
+    if (comment != NULL)
+    {
+        fprintf(htm_file, "<div style='background: #2d2d2d; padding: 10px; margin: 10px 0; border-left: 4px solid #ff6b6b;'>\n");
+        fprintf(htm_file, "<p style='color: #ff6b6b; font-weight:bold; margin:0;'>%s</p>\n", comment);
+        fprintf(htm_file, "</div>\n");
+    }
+}
+
+void WriteDumpFooter(FILE* htm_file)
+{
+    assert(htm_file);
+    fprintf(htm_file, "</div>\n\n");
+}
+
+TreeErrorType TreeDumpToHtm(Tree* tree, FILE* htm_file, const char* folder_path, const char* folder_name, const char* comment)
+{
+    assert(htm_file);
+    assert(folder_path);
+
+    time_t now = time(NULL);
+
+    WriteDumpHeader(htm_file, now, comment);
+
+    if (tree != NULL && tree->root != NULL)
+    {
+        TreeErrorType result_writing_picture = WriteTreeCommonPicture(tree, htm_file, folder_path, folder_name);
+        if (result_writing_picture != TREE_ERROR_NO)
+            return result_writing_picture;
+    }
+    else
+    {
+        fprintf(htm_file, "<p style='color:blue;'>No tree to visualize</p>\n");
+    }
+
+    WriteDumpFooter(htm_file);
+    return TREE_ERROR_NO;
+}
+
+TreeErrorType TreeDump(Tree* tree, const char* filename)
+{
+    if (tree == NULL)
+        return TREE_ERROR_NULL_PTR;
+
+    char command[kMaxSystemCommandLength] = {};
+    snprintf(command, sizeof(command), "mkdir -p %s", kGeneralFolderNameForLogs);
+    system(command);
+
+    char folder_name[kMaxLengthOfFilename] = {};
+    snprintf(folder_name, sizeof(folder_name), "%s_dump", filename);
+
+    char folder_path[kMaxLengthOfFilename] = {};
+    snprintf(folder_path, sizeof(folder_path), "%s/%s_dump", kGeneralFolderNameForLogs, filename);
+
+    snprintf(command, sizeof(command), "mkdir -p %s", folder_path);
+    system(command);
+
+    char htm_filename[kMaxLengthOfFilename] = {};
+    snprintf(htm_filename, sizeof(htm_filename), "%s/%s.htm", kGeneralFolderNameForLogs, filename);
+
+    FILE* htm_file = fopen(htm_filename, "a");
+    if (!htm_file)
+        return TREE_ERROR_OPENING_FILE;
+
+    TreeErrorType result = TreeDumpToHtm(tree, htm_file, folder_path, folder_name, NULL);
+
+    fclose(htm_file);
+    return result;
+}
+
+TreeErrorType InitTreeLog(const char* filename)
+{
+    assert(filename);
+
+    char htm_filename[kMaxLengthOfFilename] = {};
+    snprintf(htm_filename, sizeof(htm_filename), "%s/%s.htm", kGeneralFolderNameForLogs, filename);
+
+    FILE* htm_file = fopen(htm_filename, "w");
+    if (!htm_file)
+        return TREE_ERROR_OPENING_FILE;
+
+    fprintf(htm_file, "<!DOCTYPE html>\n"
+                      "<html>\n"
+                      "<head>\n"
+                      "<title>Tree Dump Log</title>\n"
+                      "<meta charset='UTF-8'>\n"
+                      "<style>\n"
+                      "body { font-family: Arial, sans-serif; margin: 20px; }\n"
+                      "table { border-collapse: collapse; width: 100%%; }\n"
+                      "th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n"
+                      "th { background-color: #f2f2f2; }\n"
+                      "</style>\n"
+                      "</head>\n"
+                      "<body>\n"
+                      "<h1>Tree Dump Log</h1>\n");
+    fclose(htm_file);
+
+    return TREE_ERROR_NO;
+}
+
+TreeErrorType CloseTreeLog(const char* filename)
+{
+    assert(filename);
+
+    char htm_filename[kMaxLengthOfFilename] = {};
+    snprintf(htm_filename, sizeof(htm_filename), "%s/%s.htm", kGeneralFolderNameForLogs, filename);
+
+    FILE* htm_file = fopen(htm_filename, "a");
+    if (!htm_file)
+        return TREE_ERROR_OPENING_FILE;
+
+    fprintf(htm_file, "</body>\n");
+    fprintf(htm_file, "</html>\n");
+    fclose(htm_file);
+
+    return TREE_ERROR_NO;
+}
+
+TreeVerifyResult VerifyTree(Tree* tree)
+{
+    if (tree == NULL)
+        return TREE_VERIFY_NULL_PTR;
+
+    if (tree->root != NULL && tree->root->parent != NULL)
+        return TREE_VERIFY_INVALID_PARENT;
+
+    return TREE_VERIFY_SUCCESS;
+}
+
+const char* TreeVerifyResultToString(TreeVerifyResult result)
+{
+    switch (result)
+    {
+        case TREE_VERIFY_SUCCESS:          return "Success";
+        case TREE_VERIFY_NULL_PTR:         return "Null pointer";
+        case TREE_VERIFY_INVALID_PARENT:   return "Invalid parent pointer";
+        case TREE_VERIFY_CYCLE_DETECTED:   return "Cycle detected";
+        default:                           return "Unknown error";
+    }
+}

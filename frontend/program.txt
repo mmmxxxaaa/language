@@ -1,0 +1,12 @@
+Freestayla function(asdf)
+{ 
+    a = 2;
+    Vova_AIbolit_Lechit_govnocod(a > 0) {
+        a = a - 1;
+    }
+}
+
+Freestayla function2(a,b,c)
+{ 
+    b = 0;
+}
