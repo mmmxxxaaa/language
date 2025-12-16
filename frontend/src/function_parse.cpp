@@ -47,7 +47,7 @@ TreeErrorType AddFunction(FunctionTable* table, const char* name, int param_coun
             {
                 current->body = body; //сохр указатель на существующее дерево
 
-                if (current->param_count != param_count) // Количество параметров должно совпадать
+                if (current->param_count != param_count)
                 {
                     fprintf(stderr, "Error: Parameter count mismatch for function '%s'\n", name);
                     return TREE_ERROR_FUNCTION_REDEFINITION;
@@ -57,7 +57,7 @@ TreeErrorType AddFunction(FunctionTable* table, const char* name, int param_coun
             }
             else if (current->body != NULL)
             {
-                return TREE_ERROR_FUNCTION_REDEFINITION; // Функция уже полностью определена. это ошибка переопределения
+                return TREE_ERROR_FUNCTION_REDEFINITION;
             }
             else
             {

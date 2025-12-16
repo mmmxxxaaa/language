@@ -1,8 +1,8 @@
 #ifndef DSL_H
 #define DSL_H
 
-#include "tree_base.h"
-#include "operations.h"
+#include "language_base.h"
+#include "tree_common_frontend.h"
 #include "tree_common.h"
 #include "variable_parse.h"
 

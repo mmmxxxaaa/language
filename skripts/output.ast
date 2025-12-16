@@ -1,0 +1,33 @@
+(SEQ
+  (FUNC
+    function
+    asdf
+    (SEQ
+      (ASSIGN
+        a
+        2
+      )
+      (WHILE
+        (GREATER
+          a
+          0
+        )
+        (ASSIGN
+          a
+          (SUB
+            a
+            1
+          )
+        )
+      )
+    )
+  )
+  (FUNC
+    function2
+    a
+    (ASSIGN
+      b
+      0
+    )
+  )
+)

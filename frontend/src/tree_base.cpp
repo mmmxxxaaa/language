@@ -49,12 +49,3 @@ TreeErrorType TreeDtor(Tree* tree)
 
     return TREE_ERROR_NO;
 }
-
-unsigned int ComputeHash(const char* str) //djb2
-{
-    unsigned int hash = 5381;
-    int c = 0;
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + (unsigned char)c; //умножаем на 33 без умножения
-    return hash;
-}

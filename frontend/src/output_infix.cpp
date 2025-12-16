@@ -1,6 +1,6 @@
 #include "output_infix.h"
 #include <stdio.h>
-#include "tree_common.h"
+#include "tree_common_frontend.h"
 
 static ASTMapping ast_mappings[] = {
     {NODE_OP, "OP"},
@@ -40,7 +40,6 @@ static const char* GetASTStringFromNode(Node* node)
     {
         if (ast_mappings[i].node_type == node->type)
         {
-            // для операций нужно дополнительно смотреть на op_value
             if (node->type == NODE_OP)
             {
                 return GetOpStringFromOpType(node->data.op_value);
@@ -54,14 +53,14 @@ static const char* GetASTStringFromNode(Node* node)
 static void PrintIndent(FILE* file, int depth)
 {
     for (int i = 0; i < depth; i++)
-        fprintf(file, "  ");  // по два пробела на уровень вложенности
+        fprintf(file, "  ");
 }
 
 static void PrintASTNode(Node* node, FILE* file, int depth)
 {
     if (!node)
     {
-        PrintIndent(file,depth);
+        PrintIndent(file, depth);
         fprintf(file, "nil\n");
         return;
     }
@@ -69,26 +68,23 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
     switch (node->type)
     {
         case NODE_NUM:
-        {
             PrintIndent(file, depth);
             fprintf(file, "%g\n", node->data.num_value);
             break;
-        }
+
         case NODE_VAR:
-        {
             PrintIndent(file, depth);
             if (node->data.var_definition.name)
                 fprintf(file, "%s\n", node->data.var_definition.name);
             else
                 fprintf(file, "nil\n");
             break;
-        }
+
         case NODE_EMPTY:
-        {
             PrintIndent(file, depth);
             fprintf(file, "nil\n");
             break;
-        }
+
         case NODE_OP:
         case NODE_EQUAL:
         case NODE_NOT_EQUAL:
@@ -103,42 +99,41 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
         case NODE_WHILE:
         case NODE_RETURN:
         case NODE_ASSIGN:
-        {
             PrintIndent(file, depth);
             fprintf(file, "(%s\n", GetASTStringFromNode(node));
 
             if (node->left)
-            {
                 PrintASTNode(node->left, file, depth + 1);
-            }
             else
             {
                 PrintIndent(file, depth + 1);
                 fprintf(file, "nil\n");
             }
 
-            if (node->right)
-            {
+            if (node->right && node->type != NODE_NOT && node->type != NODE_RETURN)
                 PrintASTNode(node->right, file, depth + 1);
+            else if (node->type != NODE_NOT && node->type != NODE_RETURN)
+            {
+                PrintIndent(file, depth + 1);
+                fprintf(file, "nil\n");
             }
 
             PrintIndent(file, depth);
             fprintf(file, ")\n");
             break;
-        }
 
         case NODE_FUNC_DECL:
-        {
             PrintIndent(file, depth);
             fprintf(file, "(FUNC\n");
 
             PrintIndent(file, depth + 1);
-            fprintf(file, "%s\n", node->data.func_name);
+            if (node->data.func_name)
+                fprintf(file, "%s\n", node->data.func_name);
+            else
+                fprintf(file, "nil\n");
 
             if (node->left)
-            {
                 PrintASTNode(node->left, file, depth + 1);
-            }
             else
             {
                 PrintIndent(file, depth + 1);
@@ -146,9 +141,7 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
             }
 
             if (node->right)
-            {
                 PrintASTNode(node->right, file, depth + 1);
-            }
             else
             {
                 PrintIndent(file, depth + 1);
@@ -158,20 +151,19 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
             PrintIndent(file, depth);
             fprintf(file, ")\n");
             break;
-        }
 
         case NODE_FUNC_CALL:
-        {
             PrintIndent(file, depth);
             fprintf(file, "(CALL\n");
 
             PrintIndent(file, depth + 1);
-            fprintf(file, "%s\n", node->data.func_name);
+            if (node->data.func_call.name)
+                fprintf(file, "%s\n", node->data.func_call.name);
+            else
+                fprintf(file, "nil\n");
 
             if (node->left)
-            {
                 PrintASTNode(node->left, file, depth + 1);
-            }
             else
             {
                 PrintIndent(file, depth + 1);
@@ -181,41 +173,8 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
             PrintIndent(file, depth);
             fprintf(file, ")\n");
             break;
-        }
 
         case NODE_SEQUENCE:
-        {
-            PrintIndent(file, depth);
-            fprintf(file, "(SEQ\n");
-
-            if (node->left)
-            {
-                PrintASTNode(node->left, file, depth + 1);
-            }
-            else
-            {
-                PrintIndent(file, depth + 1);
-                fprintf(file, "nil\n");
-            }
-
-            if (node->right)
-            {
-                PrintASTNode(node->right, file, depth + 1);
-            }
-            else
-            {
-                PrintIndent(file, depth + 1);
-                fprintf(file, "nil\n");
-            }
-
-            PrintIndent(file, depth);
-            fprintf(file, ")\n");
-            break;
-        }
-        case NODE_PARAM:
-        case NODE_ARGS:
-        {
-            // Обработка списков параметров/аргументов
             PrintIndent(file, depth);
             fprintf(file, "(SEQ\n");
 
@@ -238,13 +197,11 @@ static void PrintASTNode(Node* node, FILE* file, int depth)
             PrintIndent(file, depth);
             fprintf(file, ")\n");
             break;
-        }
+
         default:
-        {
             PrintIndent(file, depth);
             fprintf(file, "UNKNOWN_NODE_%d\n", node->type);
             break;
-        }
     }
 }
 

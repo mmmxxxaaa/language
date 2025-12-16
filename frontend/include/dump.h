@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include "tree_common_frontend.h"
 #include "tree_common.h"
 #include "tree_error_types.h"
 

@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include "tree_error_types.h"
-#include "tree_common.h"
+#include "tree_common_frontend.h"
 
 static const char* NodeDataToString(const Node* node, char* buffer, size_t buffer_size)
 {

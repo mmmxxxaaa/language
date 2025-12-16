@@ -1,6 +1,7 @@
 #ifndef OUTPUT_INFIX_H_
 #define OUTPUT_INFIX_H_
 
+#include "tree_common_frontend.h"
 #include "tree_common.h"
 #include <stdio.h>
 

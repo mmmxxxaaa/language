@@ -459,6 +459,7 @@ static Node* GetFunc(Token* tokens, int* index, int token_count, ParserContext* 
         for (int i = 0; i < param_count; i++)
             free(param_names[i]);
         free(param_names);
+        param_names = NULL; // FIXME макрос освобождения и зануления
     }
 
     if (error != TREE_ERROR_NO && error != TREE_ERROR_FUNCTION_REDEFINITION) //FIXME для рекурсии разрешаем переопределение?

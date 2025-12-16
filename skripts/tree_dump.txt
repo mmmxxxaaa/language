@@ -1,0 +1,25 @@
+=== TREE DUMP ===
+Total nodes: 21
+Root: 0x5060000007a0
+
+SEQ (addr:0x5060000007a0)
+  FUNC_DECL:function (addr:0x506000000560)
+    VAR:asdf (addr:0x506000000020)
+    SEQ (addr:0x506000000500)
+      ASSIGN (addr:0x506000000140)
+        VAR:a (addr:0x506000000080)
+        NUM:2.00 (addr:0x5060000000e0)
+      WHILE (addr:0x5060000004a0)
+        GREATER (addr:0x506000000260)
+          VAR:a (addr:0x5060000001a0)
+          NUM:0.00 (addr:0x506000000200)
+        ASSIGN (addr:0x506000000440)
+          VAR:a (addr:0x5060000002c0)
+          OP:SUB (addr:0x5060000003e0)
+            VAR:a (addr:0x506000000320)
+            NUM:1.00 (addr:0x506000000380)
+  FUNC_DECL:function2 (addr:0x506000000740)
+    VAR:a (addr:0x5060000005c0)
+    ASSIGN (addr:0x5060000006e0)
+      VAR:b (addr:0x506000000620)
+      NUM:0.00 (addr:0x506000000680)

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "tree_error_types.h"
+#include "tree_common_frontend.h"
 #include "tree_common.h"
 
 void InitVariableTable(VariableTable* ptr_table);

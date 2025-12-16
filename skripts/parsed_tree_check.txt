@@ -1,0 +1,2 @@
+Tree parsed successfully.
+Total nodes: 21

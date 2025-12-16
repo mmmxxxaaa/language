@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "new_great_input.h"
+#include "language_base.h"
 #include "dump.h"
 #include "function_parse.h"
-#include "operations.h"
 #include "output_infix.h"
 
 int main(int argc, const char** argv)
